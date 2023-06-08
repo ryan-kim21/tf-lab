@@ -1,34 +1,42 @@
+#----------------------------------------------------------
+#  Terraform - From Zero to Certified Professional
+#
+# Set S3 Backend for Terraform Remote State
+# Deploy Network Layer
+#
+# Made by Denis Astahov
+#----------------------------------------------------------
 provider "aws" {
-  region = "ap-northeast-2"
+  region = "eu-north-1"
 }
 
-data "aws_availability_zones" "available"{}
+data "aws_availability_zones" "available" {}
 
 terraform {
-  backend "s3"{
-    bucket = "ryan5100"
-    key = "dev/network/terrafrom.tfstate"
-    region = "ap-northeast-2"
+  backend "s3" {
+    bucket = "adv-it-terraform-remote-state" // Bucket where to SAVE Terraform State
+    key    = "dev/network/terraform.tfstate" // Object name in the bucket to SAVE Terraform State
+    region = "us-west-2"                     // Region where bucket created
   }
 }
 
-resource "aws_vpc" "main"{
-    cidr_block = var.vpc_cidr
-    tags = {
-        Name = "${var.env}-vpc"
-        Owner = "Ryan Kim"
-    }
-}
 
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name  = "${var.env}-vpc"
+    Owner = "Denis Astahov"
+  }
+}
 
 resource "aws_internet_gateway" "main" {
-    vpc_id = aws_vpc.main.id
-    tags = {
-        Name = "${var.env}-igw"
-        Owner = "Ryan Kim"
-    }
-  
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name  = "${var.env}-igw"
+    Owner = "Denis Astahov"
+  }
 }
+
 
 resource "aws_subnet" "public_subnets" {
   count                   = length(var.public_subnet_cidrs)
@@ -38,7 +46,7 @@ resource "aws_subnet" "public_subnets" {
   map_public_ip_on_launch = true
   tags = {
     Name  = "${var.env}-public-${count.index + 1}"
-    Owner = "Ryan Kim"
+    Owner = "Denis Astahov"
   }
 }
 
@@ -50,7 +58,7 @@ resource "aws_route_table" "public_subnets" {
   }
   tags = {
     Name  = "${var.env}-route-public-subnets"
-    Owner = "Ryan Kim"
+    Owner = "Denis Astahov"
   }
 }
 
