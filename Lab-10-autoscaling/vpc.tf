@@ -6,5 +6,5 @@ resource "aws_default_subnet" "default_az1" {
 }
 
 resource "aws_default_subnet" "default_az2" {
-  availability_zone = data.aws_availability_zones.working.names[1]
+  availability_zone = data.aws_availability_zones.working.names[2]
 }
