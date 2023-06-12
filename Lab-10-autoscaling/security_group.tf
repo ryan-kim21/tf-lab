@@ -1,7 +1,7 @@
 #-------------------------------------------------------------------------------
 resource "aws_security_group" "web" {
   name   = "Web Security Group"
-  vpc_id = aws_default_vpc.default.id
+  vpc_id = aws_vpc.custom_vpc.id
   dynamic "ingress" {
     for_each = ["80", "443"]
     content {
@@ -21,3 +21,4 @@ resource "aws_security_group" "web" {
     Name = "Web Security Group"
   }
 }
+~       
