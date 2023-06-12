@@ -4,7 +4,7 @@ resource "aws_launch_template" "web" {
   image_id               = data.aws_ami.latest_amazon_linux.id
   instance_type          = "t2.micro"
   vpc_security_group_ids = [aws_security_group.web.id]
-  user_data              = templatefile("${path.module}/user_data.sh", {})
+  user_data              = filebase64("${path.module}/user_data.sh")
 
   # 추가 설정 및 속성
 }
