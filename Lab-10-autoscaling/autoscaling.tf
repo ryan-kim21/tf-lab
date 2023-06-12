@@ -19,7 +19,7 @@ resource "aws_autoscaling_group" "web" {
   max_size            = 3
   min_elb_capacity    = 2
   health_check_type   = "ELB"
-  vpc_zone_identifier = [aws_default_subnet.default_az1.id, aws_default_subnet.default_az2.id]
+  vpc_zone_identifier = [aws_subnet.default_az1.id, aws_subnet.default_az2.id]
   target_group_arns   = [aws_lb_target_group.web.arn]
 
   launch_template {
