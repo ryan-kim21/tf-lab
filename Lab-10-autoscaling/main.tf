@@ -9,15 +9,13 @@
 
 provider "aws" {
     region = "ap-northeast-2"
-  
-
-}
+  }
 
 data "aws_availability_zones" "working"{}
 
 
 data "aws_ami" "latest_amazon_linux"{
-    owners = [""]
+    owners = ["960524191939"]
     most_recent = true
     filter {
         name = "name"
@@ -69,7 +67,7 @@ resource "aws_launch_configuration" "web" {
 resource "aws_autoscaling_group" "web"{
     name = "ASG-${aws_launch_configuration.web.name}" #launch_configration_name
     launch_configuration = aws_launch_configuration.web.name
-    min_size = 3
+    min_size = 1
     max_size = 3
     min_elb_capacity = 3
     health_check_type = "ELB"
@@ -101,7 +99,7 @@ resource "aws_autoscaling_group" "web"{
 
 resource "aws_elb" "web" {
     name = "WebServer-HighlyAvailable-ELB"
-    availability_zones = [data.data.aws_availability_zones.working.names[0], data.data.aws_availability_zones.working.names[1]]
+    availability_zones = [data.aws_availability_zones.working.names[0], data.data.aws_availability_zones.working.names[1]]
     security_groups = [aws_security_group.web.id]
     listener{
         lb_port = 80
