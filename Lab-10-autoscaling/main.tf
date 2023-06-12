@@ -25,14 +25,25 @@ provider "aws" {
 
 
 data "aws_availability_zones" "working" {}
+
 data "aws_ami" "latest_amazon_linux" {
-  owners      = ["960524191939"]
+  owners      = ["amazon"]
   most_recent = true
+
   filter {
     name   = "name"
     values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 }
+
+resource "aws_instance" "amazon_linux" {
+  ami           = "ami-027886247d2f15359"  # Amazon Linux AMI의 ID를 입력하세요
+  instance_type = "t2.micro"          # 인스턴스 유형을 선택하세요
+  key_name      = "my-key-2023"     # EC2 인스턴스에 사용할 키 페어의 이름을 입력하세요
+  
+  # 추가적인 설정 및 속성은 필요에 따라 추가하십시오
+}
+
 
 #-------------------------------------------------------------------------------
 resource "aws_default_vpc" "default" {}
