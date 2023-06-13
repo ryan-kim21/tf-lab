@@ -5,6 +5,8 @@ resource "aws_lb" "web" {
   subnets            = [aws_subnet.default_az1.id, aws_subnet.default_az2.id]
 }
 
+
+
 resource "aws_lb_target_group" "web" {
   name                 = "WebServer-HighlyAvailable-TG"
   vpc_id               = aws_vpc.custom_vpc.id

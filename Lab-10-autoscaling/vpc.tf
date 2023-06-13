@@ -2,6 +2,11 @@ resource "aws_vpc" "custom_vpc" {
   cidr_block = "10.0.0.0/16"
 }
 
+
+resource "aws_internet_gateway" "custom_vpc_igw" {
+  vpc_id = aws_vpc.custom_vpc.id
+}
+
 resource "aws_subnet" "default_az1" {
   vpc_id                  = aws_vpc.custom_vpc.id
   availability_zone       = data.aws_availability_zones.working.names[0]
