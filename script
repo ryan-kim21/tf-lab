@@ -1,3 +1,0 @@
-provisionor "local-exec" {
-    command = "echo aws_instance.MyFirstInstnace.private_ip >> pribateips.txt"
-}
