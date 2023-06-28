@@ -1,0 +1,123 @@
+Create a new IAM account and a EKS cluster
+IAM permissions vs Kubernetes RBAC
+Adding super-admin, admin, developer, and trainee IAM users
+aws_auth configmap
+Add specific permissions for each user
+
+1. 새로운 계정 생성 
+###################################################################
+2. 정책 생성
+eks - eks read, list 권한 
+###################################################################
+3. 붙이고 싶은 정책을 새로운 계정에 붙여두기 
+##################################################################
+4. aws sts get-caller-identity
+ubuntu@ip-10-20-1-208:~$ aws sts get-caller-identity
+{
+    "UserId": "",
+    "Account": "",
+    "Arn": "arn:aws:iam::960524191939:user/eks-test-user"
+}
+#####################################################################################
+5. # clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: new-eks-policy
+rules:
+- apiGroups: ["*"]
+  resources: ["deployments", "configmaps", "pods", "secrets", "services"]
+  verbs: ["get", "list", "watch"]
+---
+# clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: new-eks-policy
+subjects:
+- kind: Group
+  name: eks-test-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: new-eks-policy
+  apiGroup: rbac.authorization.k8s.io
+
+
+
+6. yaml 파일 kubectl apply -f 
+##################################################################################
+7. kubectl get configmap aws-auth -n kube-system -o yaml
+kubectl get configmap aws-auth -n kube-system -o yaml
+apiVersion: v1
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::960524191939:role/test-iam-role-eks-nodegroup
+      username: system:node:{{EC2PrivateDNSName}}
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2023-04-16T13:03:18Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "1533"
+  uid: b8b5bc75-4459-4806-a5b4-0bb9a631c295
+##############################################################################
+8. 수정하기 
+aws_auth.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::960524191939:role/test-iam-role-eks-nodegroup
+      username: system:node:{{EC2PrivateDNSName}}
+  mapUsers: |
+    - userarn: arn:aws:iam::960524191939:user/eks-test-user
+      username: eks-test-user
+      groups:
+        - system:masters
+########################################################################################################
+ cat ~/.kube/config
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ""
+    server: """"
+  name: arn:aws:eks:ap-northeast-2:960524191939:cluster/test-eks-cluster
+contexts:
+- context:
+    cluster: arn:aws:eks:ap-northeast-2:960524191939:cluster/test-eks-cluster
+    user: arn:aws:eks:ap-northeast-2:960524191939:cluster/test-eks-cluster
+  name: arn:aws:eks:ap-northeast-2:960524191939:cluster/test-eks-cluster
+current-context: arn:aws:eks:ap-northeast-2:960524191939:cluster/test-eks-cluster
+kind: Config
+preferences: {}
+users:
+- name: arn:aws:eks:ap-northeast-2:960524191939:cluster/test-eks-cluster
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1alpha1
+      args:
+      - --region
+      - ap-northeast-2
+      - eks
+      - get-token
+      - --cluster-name
+      - test-eks-cluster
+      command: aws
+
+
+
+aws configure set aws_access_key_id [] --profile default
+aws configure set aws_secret_access_key [] --profile default
+aws configure set region ap-northeast-2 --profile default
+
+
