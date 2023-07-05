@@ -45,21 +45,172 @@ aws iam create-role \
 
 policy.json
 
-
-
 aws iam create-policy \
   --policy-name dev-ryan-eks-role \
   --policy-document file://policy.json
 
-
-
 aws iam attach-role-policy \
   --role-name dev-ryan-eks-role \
-  --policy-arn arn:aws:iam::960524191939:policy/dev-ryan-eks-role
+  --policy-arn arkn:aws:iam::960524191939:policy/dev-ryan-eks-role
 
 #######################################################################################################
+#oidc 생성 
 
 eksctl utils associate-iam-oidc-provider --region=ap-northeast-2 --cluster=dev-eks-cluster --approve
+
+# iam 생성
+
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerIAMPolicy \ 
+  --policy-document file://alb-iam-policy.json
+
+---> Created role name 
+
+# isrl 생성 
+
+eksctl create iamserviceaccount \
+        --cluster=my-cluster \
+        --name aws-load-balancer-controller \
+        --role-name AmazoneEKSLoadBalancerControllerRole \
+        --attach-policy-arn arn:aws:iam::1111111111:policy/Created role name \
+        --approve
+
+---> 확인 
+kubectl -n kube-system get serviceaccount aws-load-balancer-controller
+
+
+#eks alb controller install
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+
+CLUSTER_NAME="${your_eks_cluster_name}"
+helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=${CLUSTER_NAME} \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller
+
+kubectl -n kube-system get po
+
+
+
+# test nlb 
+# kubectl apply nlb.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-nlb-test
+spec:
+  selector:
+    matchLabels:
+      app: nginx-nlb-test
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx-nlb-test
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-nlb-test
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip #
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "80"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: service.k8s.aws/nlb #
+  selector:
+    app: nginx-nlb-test
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+
+# test alb
+
+# kubectl apply -f alb.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-alb-test
+  labels:
+    app: nginx-alb-test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-alb-test
+spec:
+  selector:
+    app: nginx-alb-test
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-alb-test
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing #
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb #
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-alb-test
+            port:
+              number: 80
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------
 
 eksctl --profile default \
        --region=ap-northeast-2 \
@@ -67,7 +218,6 @@ eksctl --profile default \
        --name aws-load-balancer-controller \
        --namespace kube-system \
        --cluster dev-eks-cluster
-
 
 
 #aws load balancer controller iam 생성
@@ -138,26 +288,118 @@ ubuntu@ip-10-20-1-84:~$ eksctl --profile default\
 2023-06-27 14:51:53 [ℹ]  created serviceaccount "kube-system/aws-load-balancer-controller
 
 
-
-
-
 aws eks update-cluster-config \
     --region ap-northeast-2 \
     --name dev-eks-cluster \
     --resources-vpc-config endpointPublicAccess=true,publicAccessCidrs="203.0.113.5/32",endpointPrivateAccess=true
 
 
-curl -L https://git.io/get_helm.sh | bash -s -- --version v3.8.2
 
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 ##< 이거 안됨
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+chmod +x get_helm.sh
+./get_helm.sh --version v3.8.2
 
-chmod 700 get_helm.sh
-./get_helm.sh
 
 helm repo add aws https://aws.github.io/eks-charts
-
 helm install my-aws-load-balancer-controller aws/aws-load-balancer-controller --version 1.5.4 --set clusterName=dev-eks-cluster
+
 helm pull aws/aws-load-balancer-controller --version 1.5.4
 
 
+#####
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
 
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller --version 1.5.4 \
+  --set clusterName=dev-eks-cluster \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  -n kube-system
+
+
+###
+# kube-system 네임스페이스로 전환
+kubectl create namespace kube-system
+kubectl config set-context --current --namespace=kube-system
+
+# Helm 레포지토리 업데이트
+helm repo update
+
+# AWS Load Balancer Controller Helm 차트 설치
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --set clusterName=dev-eks-cluster \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  -n kube-system
+
+#cert-manager설치  
+# cert-manager 네임스페이스로 전환
+kubectl create namespace cert-manager
+kubectl config set-context --current --namespace=cert-manager
+
+# cert-manager Helm 차트 저장소 추가
+helm repo add jetstack https://charts.jetstack.io
+
+# Helm 레포지토리 업데이트
+helm repo update
+
+# cert-manager Helm 차트 설치
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version <cert-manager-version> \
+  --set installCRDs=true
+
+
+
+# alb 테스트 
+
+# 테스트용 네임스페이스 생성
+kubectl create namespace test
+
+# Nginx 웹 서버 배포
+kubectl create deployment nginx --image=nginx --namespace test
+
+# Nginx 웹 서버를 위한 Service 생성
+kubectl expose deployment nginx --port=80 --target-port=80 --type=ClusterIP --namespace test
+
+# Ingress 리소스 생성
+cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+  namespace: test
+spec:
+  rules:
+    - host: example.com  # 테스트할 도메인 주소로 대체
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+EOF
+
+# 확인 
+kubectl get ingress -n test
+
+
+alb logs 확인
+kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+
+
+kubectl get serviceaccount aws-load-balancer-controller -n kube-system -o yaml
+
+
+helm repo add eks https://aws.github.io/eks-charts
+
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --set clusterName=dev-eks-cluster \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="arn:aws:iam::960524191939:role/eksctl-dev-eks-cluster-addon-iamserviceaccou-Role1-114294HM3H7X8" \
+  --namespace kube-system
