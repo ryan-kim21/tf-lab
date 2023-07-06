@@ -41,9 +41,11 @@ aws eks --region ap-northeast-2 update-kubeconfig --name dev-eks-cluster
 
 aws iam create-role \
   --role-name dev-ryan-eks-role \
-  --assume-role-policy-document file://trust-policy.json
+  --assume-role-policy-document file://alb-iam-policy.json
 
-policy.json
+alb-iam-policy.json
+
+
 
 aws iam create-policy \
   --policy-name dev-ryan-eks-role \
@@ -54,29 +56,73 @@ aws iam attach-role-policy \
   --policy-arn arkn:aws:iam::960524191939:policy/dev-ryan-eks-role
 
 #######################################################################################################
+
+
+
 #oidc 생성 
+
 
 eksctl utils associate-iam-oidc-provider --region=ap-northeast-2 --cluster=dev-eks-cluster --approve
 
 # iam 생성
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy.json
+
 
 aws iam create-policy \
-  --policy-name AWSLoadBalancerControllerIAMPolicy \ 
-  --policy-document file://alb-iam-policy.json
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
+
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerIAMPolicy2 \
+  --policy-document file://iam_policy.json
+
 
 ---> Created role name 
 
 # isrl 생성 
 
 eksctl create iamserviceaccount \
-        --cluster=my-cluster \
+  --cluster ${CLUSTER_NAME} \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --role-name ${ROLE_NAME} \
+  --attach-policy-arn=${POLICY_ARN} \
+  --approve
+
+eksctl --profile default\
+   --region=ap-northeast-2 \
+  delete iamserviceaccount \
+  --name aws-load-balancer-controller \
+  --namespace kube-system \
+  --cluster dev-eks-cluster 
+
+#--role-name > 만들어질 rolename
+
+eksctl create iamserviceaccount \
+    --name=aws-load-balancer-controller2 \
+    --cluster=dev-eks-cluster \
+    --namespace=kube-system \
+    --role-name AWSLoadBalancerControllerRole2 \
+    --attach-policy-arn arn:aws:iam::960524191939:policy/AWSLoadBalancerControllerIAMPolicy2 \
+    --approve
+
+eksctl --profile default\
+       --region=ap-northeast-2 \
+        create iamserviceaccount \
         --name aws-load-balancer-controller \
-        --role-name AmazoneEKSLoadBalancerControllerRole \
-        --attach-policy-arn arn:aws:iam::1111111111:policy/Created role name \
+        --namespace kube-system \
+        --override-existing-serviceaccounts \
+        --cluster dev-eks-cluster \
+        --attach-policy-arn arn:aws:iam::960524191939:policy/dev-eks-iam-policy \
         --approve
 
 ---> 확인 
-kubectl -n kube-system get serviceaccount aws-load-balancer-controller
+kubectl -n kube-system get serviceaccount aws-load-balancer-controller2
+
+#helm install
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+chmod +x get_helm.sh
+./get_helm.sh --version v3.8.2
 
 
 #eks alb controller install
@@ -84,12 +130,21 @@ helm repo add eks https://aws.github.io/eks-charts
 helm repo update
 
 
-CLUSTER_NAME="${your_eks_cluster_name}"
+
 helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=${CLUSTER_NAME} \
   --set serviceAccount.create=false \
   --set serviceAccount.name=aws-load-balancer-controller
+
+
+helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=dev-eks-cluster \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller2
+
+
 
 kubectl -n kube-system get po
 
